@@ -16,15 +16,19 @@ class ViewController: UIViewController, ShelfViewDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+
         // ** //
-        shelfView = ShelfView(frame: CGRect(x: 0, y: statusBarHeight, width: deviceScreenWidth(), height: deviceScreenHeight() - statusBarHeight))
+        shelfView = ShelfView(frame: CGRect(x: 0, y: 0, width: deviceScreenWidth(), height: deviceScreenHeight()))
         // ** //
-        bookModel.append(BookModel.init(bookCoverSource: "http://www.aidanf.net/images/learn-swift/cover-web.png", bookId: "0", bookTitle: "Learn Swift"))
+		bookModel.append(BookModel.init(bookCoverSource: "http://www.aidanf.net/images/learn-swift/cover-web.png", bookId: "0", bookTitle: "Learn Swift"))
         bookModel.append(BookModel.init(bookCoverSource: "https://images-na.ssl-images-amazon.com/images/I/41bUdNhz6pL._SX346_BO1,204,203,200_.jpg", bookId: "1", bookTitle: "Beginning iOS"))
         bookModel.append(BookModel.init(bookCoverSource: "https://www.packtpub.com/sites/default/files/1414OS_5764_Mastering%20Swift%203%20-%20Linux.jpg", bookId: "2", bookTitle: "Mastering Swift 3 - Linux"))
         bookModel.append(BookModel.init(bookCoverSource: "https://files.kerching.raywenderlich.com/uploads/c7f72825-5849-4d76-ba21-8d9486296119.png", bookId: "3", bookTitle: "iOS Apprentice"))
+
+		bookModel.append(BookModel(bookCoverSource: "http://www.aidanf.net/images/learn-swift/cover-web.png", bookCoverImage: #imageLiteral(resourceName: "gradient"), bookId: "4", bookTitle: "UIImage Book Cover", bookSubtitle: "With a subtitle"))
+
         // ** //
-        shelfView.loadData(bookModel: bookModel, bookSource: ShelfView.BOOK_SOURCE_URL)
+		shelfView.loadData(bookModel: bookModel, bookSource: .url)
         // ** //
         delay(3){
             self.bookModel.append(BookModel.init(bookCoverSource: "https://www.packtpub.com/sites/default/files/5723cov_.png", bookId: "4", bookTitle: "Learning Xcode 8"))
@@ -51,12 +55,17 @@ class ViewController: UIViewController, ShelfViewDelegate {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }
-    
+
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        delay(0, closure: {
-            self.shelfView.resize(width: self.deviceScreenWidth(), height: self.deviceScreenHeight() - self.statusBarHeight, bookModel: self.bookModel)
-        })
+
+		//Replaced delay(0) with the correct way to handle size changes
+		coordinator.animate(alongsideTransition: { context in
+			//Animation to be excecuted along the transition
+			self.shelfView.resize(width: self.deviceScreenWidth(), height: self.deviceScreenHeight(), bookModel: self.bookModel)
+		}) { context in
+			//Animation to be excecuted after the completion, not needed here
+		}
     }
     
     func deviceScreenWidth() -> CGFloat {
@@ -73,7 +82,10 @@ class ViewController: UIViewController, ShelfViewDelegate {
             execute: closure
         )
     }
-    
+
+	override var preferredStatusBarStyle: UIStatusBarStyle {
+		return .lightContent
+	}
     
 }
 

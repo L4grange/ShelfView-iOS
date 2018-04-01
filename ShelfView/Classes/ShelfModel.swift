@@ -8,60 +8,30 @@
 
 import Foundation
 
+public enum ShelfType: String {
+	case start
+	case center
+	case end
+}
+
 class ShelfModel {
     
-    private var _bookCoverSource: String!
-    private var _bookId: String!
-    private var _bookTitle: String!
-    private var _show: Bool!
-    private var _type: String!
-    
-    var bookCoverSource: String {
-        get {
-            return self._bookCoverSource
-        } set {
-            self._bookCoverSource = newValue
-        }
-    }
-    
-    var bookId : String {
-        get {
-            return self._bookId
-        } set {
-            self._bookId = newValue
-        }
-    }
-    
-    var bookTitle : String {
-        get {
-            return self._bookTitle
-        } set {
-            self._bookTitle = newValue
-        }
-    }
-    
-    var show : Bool {
-        get {
-            return self._show
-        } set {
-            self._show = newValue
-        }
-    }
-    
-    var type : String {
-        get {
-            return self._type
-        } set {
-            self._type = newValue
-        }
-    }
-    
-    init(bookCoverSource: String, bookId: String, bookTitle: String, show: Bool, type: String) {
-        self._bookCoverSource = bookCoverSource
-        self._bookId = bookId
-        self._bookTitle = bookTitle
-        self._show = show
-        self._type = type
+    var bookCoverSource: String?
+    var bookCoverSourceImage: UIImage?
+    var bookId: String!
+    var bookTitle: String!
+    var bookSubtitle: String?
+    var show: Bool!
+    var position: ShelfType!
+
+	init(bookCoverSource: String? = nil, bookCoverImage: UIImage? = nil, bookId: String, bookTitle: String, bookSubtitle: String? = nil, show: Bool, position: ShelfType) {
+        self.bookCoverSource = bookCoverSource
+        self.bookCoverSourceImage = bookCoverImage
+        self.bookId = bookId
+        self.bookTitle = bookTitle
+		self.bookSubtitle = bookSubtitle
+        self.show = show
+        self.position = position
     }
     
 }

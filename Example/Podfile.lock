@@ -1,7 +1,7 @@
 PODS:
-  - Kingfisher (3.6.2)
+  - Kingfisher (4.6.4)
   - ShelfView (1.0):
-    - Kingfisher (~> 3.0)
+    - Kingfisher (~> 4.0)
 
 DEPENDENCIES:
   - ShelfView (from `../`)
@@ -11,9 +11,9 @@ EXTERNAL SOURCES:
     :path: ../
 
 SPEC CHECKSUMS:
-  Kingfisher: 2c94e72c6830622c71d06adf4ea024c37d316830
-  ShelfView: 7ec8cdc423a79d0a3e87f9035021e8d8bb727af1
+  Kingfisher: 68498a706e46c2a050b0c9572f100e5db407f6e0
+  ShelfView: 0c2527821334b4bc035906675eb5db9546d0065d
 
 PODFILE CHECKSUM: ad12021367c41c81b269af9c271c64edc2fa1c47
 
-COCOAPODS: 1.2.1
+COCOAPODS: 1.4.0

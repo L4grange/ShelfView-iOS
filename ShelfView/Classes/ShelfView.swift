@@ -12,26 +12,25 @@ import Kingfisher
 
 public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout  {
     
-    
     private let indicatorWidth = Double(50)
     private let bookCoverMargin = Double(10)
     private let spineWidth = CGFloat(8)
     private let bookBackgroundMarignTop = Double(23)
-    
-    public static let BOOK_SOURCE_DEVICE_DOCUMENTS = 1
-    public static let BOOK_SOURCE_DEVICE_LIBRARY = 2
-    public static let BOOK_SOURCE_DEVICE_CACHE = 3
-    public static let BOOK_SOURCE_URL = 4
-    public static let BOOK_SOURCE_RAW = 5
-    
-    private static let START = "start"
-    private static let END = "end"
-    private static let CENTER = "center"
+
+	public enum BookSource : Int {
+		case undefined
+		case deviceDocuments
+		case deviceLibrary
+		case deviceCache
+		case url
+		case raw
+		case image
+	}
     
     private var bookModel = [BookModel]()
     private var shelfModel = [ShelfModel]()
     
-    private var bookSource = 0
+	private var bookSource : BookSource = .undefined
     private var numberOfTilesPerRow: Int!
     private var shelfHeight: Int!
     private var shelfWidth: Int!
@@ -42,7 +41,8 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
     private let layout = UICollectionViewFlowLayout()
     private let utils = Utils()
     public weak var delegate: ShelfViewDelegate!
-    
+
+	private var showTitleLables = false
     
     required public init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -56,12 +56,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
         initData(bookModel: self.bookModel, width: frame.width, height: frame.height)
     }
     
-    
-    
-    public func loadData (bookModel: [BookModel], bookSource : Int) {
+	public func loadData (bookModel: [BookModel], bookSource : BookSource, showTitleLabels: Bool = false) {
         utils.delay(0){
             self.bookSource = bookSource
             self.processData(bookModel: bookModel)
+			self.showTitleLables = showTitleLabels
         }
     }
     
@@ -69,7 +68,7 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
     private func initData (bookModel: [BookModel], width: CGFloat, height: CGFloat) {
         
         shelfView = UICollectionView(frame: CGRect(x: 0, y: 0, width: width , height: height), collectionViewLayout: layout)
-        shelfView.register(ShelfCellView.self, forCellWithReuseIdentifier: "ShelfCellView")
+        shelfView.register(ShelfCellView.self, forCellWithReuseIdentifier: ShelfCellView.identifier())
         shelfView.dataSource = self
         shelfView.delegate =  self
         shelfView.alwaysBounceVertical = false
@@ -106,9 +105,9 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             let fillUp = numberOfTilesPerRow - remainderTiles
             for  i in 0 ..< fillUp  {
                 if (i == (fillUp - 1)) {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                 } else {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                 }
             }
         }
@@ -119,11 +118,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             if (remainderRowHeight == 0) {
                 for i in 0 ..< numberOfTilesPerRow  {
                     if (i == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if (i == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -131,11 +130,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                 let fillUp = numberOfTilesPerRow * (remainderRowHeight + 1)
                 for i in 0 ..< fillUp {
                     if ((i % numberOfTilesPerRow) == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                 }
             }
@@ -152,17 +151,25 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
         self.shelfModel.removeAll()
         
         for  i in 0 ..< bookModel.count {
-            let bookCoverSource = bookModel[i].bookCoverSource
-            let bookId = bookModel[i].bookId
-            let bookTitle = bookModel[i].bookTitle
-            
+			let book = bookModel[i]
+
+            let bookCoverSource = book.bookCoverSource
+			let bookImage = book.bookCoverImage
+            let bookId = book.bookId!
+            let bookTitle = book.bookTitle!
+			let bookSubtitle = book.bookSubtitle
+
+			let model = ShelfModel(bookCoverSource: bookCoverSource, bookCoverImage: bookImage, bookId: bookId, bookTitle: bookTitle, bookSubtitle: bookSubtitle, show: true, position: .start)
+
             if ((i % numberOfTilesPerRow) == 0) {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.START))
+				model.position = .start
             } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.END))
+				model.position = .end
             } else {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.CENTER))
+				model.position = .center
             }
+
+			self.shelfModel.append(model)
         }
         
         
@@ -175,9 +182,9 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             let fillUp = numberOfTilesPerRow - remainderTiles
             for i in 0 ..< fillUp {
                 if (i == (fillUp - 1)) {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                 } else {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                 }
             }
         }
@@ -188,11 +195,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             if (remainderRowHeight == 0) {
                 for i in 0 ..< numberOfTilesPerRow {
                     if (i == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if (i == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -200,11 +207,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                 let fillUp = numberOfTilesPerRow * (remainderRowHeight + 1)
                 for i in 0 ..< fillUp {
                     if ((i % numberOfTilesPerRow) == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -218,32 +225,35 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
         
         let position = indexPath.row
         let shelfItem = shelfModel[position]
-        let bookCover = shelfItem.bookCoverSource.trim()
-        
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ShelfCellView", for: indexPath) as! ShelfCellView
-        cell.shelfBackground.frame = CGRect(x: 0, y: 0, width: trueGridItemWidth, height: Double(gridItemHeight))
+        let bookCover = ((shelfItem.bookCoverSource) ?? "").trim()
+        let bookCoverImage = shelfItem.bookCoverSourceImage
+
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ShelfCellView.identifier(), for: indexPath) as! ShelfCellView
+		cell.shelfBackground.frame = CGRect(x: 0, y: 0, width: trueGridItemWidth + 1, height: Double(gridItemHeight)) //iPad fix, thanks to @mgiroux
         cell.shelfBackground.contentMode = .scaleToFill
         
-        switch shelfItem.type {
-        case ShelfView.START:
+        switch shelfItem.position {
+        case .start:
             cell.shelfBackground.image = utils.loadImage(name: "left")
-            break
-        case ShelfView.END:
+        case .end:
             cell.shelfBackground.image = utils.loadImage(name: "right")
-            break
+		case .center: fallthrough
         default:
             cell.shelfBackground.image = utils.loadImage(name: "center")
-            break
         }
-        
+
+		cell.showTitle = showTitleLables
+		cell.titleLabel.text = shelfItem.bookTitle
+		cell.subtitleLabel.text = shelfItem.bookSubtitle
+
         cell.bookCover.kf.indicatorType = .none
         cell.bookBackground.frame = CGRect(x: (trueGridItemWidth - Dimens.bookWidth)/2, y: bookBackgroundMarignTop, width: Dimens.bookWidth, height: Dimens.bookHeight)
         cell.bookCover.frame = CGRect(x: bookCoverMargin/2, y: bookCoverMargin, width: Dimens.bookWidth - bookCoverMargin, height: Dimens.bookHeight - bookCoverMargin)
         cell.indicator.frame = CGRect(x: (Dimens.bookWidth - indicatorWidth)/2, y: (Dimens.bookHeight - indicatorWidth)/2, width: indicatorWidth, height: indicatorWidth)
         cell.indicator.startAnimating()
-        
+
         switch (bookSource) {
-        case ShelfView.BOOK_SOURCE_DEVICE_CACHE:
+        case .deviceCache:
             if shelfItem.show && bookCover != "" {
                 let paths = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)
                 if let dirPath = paths.first {
@@ -254,8 +264,7 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                     cell.spine.isHidden = false
                 }
             }
-            break
-        case ShelfView.BOOK_SOURCE_DEVICE_LIBRARY:
+        case .deviceLibrary:
             if shelfItem.show && bookCover != "" {
                 let paths = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true)
                 if let dirPath = paths.first {
@@ -266,8 +275,7 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                     cell.spine.isHidden = false
                 }
             }
-            break
-        case ShelfView.BOOK_SOURCE_DEVICE_DOCUMENTS:
+        case .deviceDocuments:
             if shelfItem.show && bookCover != "" {
                 let paths = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)
                 if let dirPath = paths.first {
@@ -278,8 +286,7 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                     cell.spine.isHidden = false
                 }
             }
-            break
-        case ShelfView.BOOK_SOURCE_URL:
+        case .url:
             if shelfItem.show && bookCover != "" {
                 let url = URL(string: bookCover)!
                 cell.bookCover.kf.setImage(with: url, completionHandler: {
@@ -290,14 +297,19 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                     }
                 })
             }
-            break
-        case ShelfView.BOOK_SOURCE_RAW:
+        case .raw:
             if shelfItem.show && bookCover != "" {
                 cell.bookCover.image = UIImage(named: bookCover)
                 cell.indicator.stopAnimating()
                 cell.spine.isHidden = false
             }
-            break
+		case .image:
+			if shelfItem.show && bookCoverImage != nil {
+				cell.bookCover.image = bookCoverImage!
+				cell.indicator.stopAnimating()
+				cell.spine.isHidden = false
+			}
+		case .undefined: fallthrough
         default:
             if shelfItem.show && bookCover != "" {
                 let url = URL(string: "https://www.packtpub.com/sites/default/files/cover_1.png")!
@@ -309,7 +321,6 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                     }
                 })
             }
-            break
         }
         
         cell.bookBackground.isHidden = !shelfItem.show
@@ -341,8 +352,8 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
     
     public func resize(width: CGFloat, height: CGFloat, bookModel: [BookModel]) {
         
-        if bookSource == 0 {
-            fatalError("You can't resize a shelfView when you've not called loadData (bookModel: [BookModel], bookSource : Int)")
+        if bookSource == .undefined {
+            fatalError("You can't resize a shelfView when you've not called loadData (bookModel: [BookModel], bookSource : BookSource)")
         }
         
         shelfView.frame = CGRect(x: 0, y: 0, width: width , height: height)
@@ -369,9 +380,9 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             let fillUp = numberOfTilesPerRow - remainderTiles
             for  i in 0 ..< fillUp  {
                 if (i == (fillUp - 1)) {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                 } else {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                 }
             }
         }
@@ -382,11 +393,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             if (remainderRowHeight == 0) {
                 for i in 0 ..< numberOfTilesPerRow  {
                     if (i == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if (i == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -394,11 +405,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                 let fillUp = numberOfTilesPerRow * (remainderRowHeight + 1)
                 for i in 0 ..< fillUp {
                     if ((i % numberOfTilesPerRow) == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -412,15 +423,17 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
         
         for  i in 0 ..< bookModel.count {
             let bookCoverSource = bookModel[i].bookCoverSource
-            let bookId = bookModel[i].bookId
-            let bookTitle = bookModel[i].bookTitle
-            
+			let bookCoverImage = bookModel[i].bookCoverImage
+            let bookId = bookModel[i].bookId!
+            let bookTitle = bookModel[i].bookTitle!
+            let bookSubtitle = bookModel[i].bookSubtitle
+
             if ((i % numberOfTilesPerRow) == 0) {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.START))
+                self.shelfModel.append(ShelfModel(bookCoverSource: bookCoverSource,  bookCoverImage: bookCoverImage, bookId: bookId, bookTitle: bookTitle, bookSubtitle: bookSubtitle, show: true, position: .start))
             } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.END))
+                self.shelfModel.append(ShelfModel(bookCoverSource: bookCoverSource,  bookCoverImage: bookCoverImage, bookId: bookId, bookTitle: bookTitle, bookSubtitle: bookSubtitle, show: true, position: .end))
             } else {
-                self.shelfModel.append(ShelfModel.init(bookCoverSource: bookCoverSource, bookId: bookId, bookTitle: bookTitle, show: true, type: ShelfView.CENTER))
+                self.shelfModel.append(ShelfModel(bookCoverSource: bookCoverSource,  bookCoverImage: bookCoverImage, bookId: bookId, bookTitle: bookTitle, bookSubtitle: bookSubtitle, show: true, position: .center))
             }
         }
         
@@ -434,9 +447,9 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             let fillUp = numberOfTilesPerRow - remainderTiles
             for i in 0 ..< fillUp {
                 if (i == (fillUp - 1)) {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                 } else {
-                    self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                    self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                 }
             }
         }
@@ -447,11 +460,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
             if (remainderRowHeight == 0) {
                 for i in 0 ..< numberOfTilesPerRow {
                     if (i == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if (i == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }
@@ -459,11 +472,11 @@ public class ShelfView: UIView,UICollectionViewDelegate, UICollectionViewDataSou
                 let fillUp = numberOfTilesPerRow * (remainderRowHeight + 1)
                 for i in 0 ..< fillUp {
                     if ((i % numberOfTilesPerRow) == 0) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.START))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .start))
                     } else if ((i % numberOfTilesPerRow) == (numberOfTilesPerRow - 1)) {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.END))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .end))
                     } else {
-                        self.shelfModel.append(ShelfModel.init(bookCoverSource: "", bookId: "", bookTitle: "", show: false, type: ShelfView.CENTER))
+                        self.shelfModel.append(ShelfModel(bookCoverSource: "", bookId: "", bookTitle: "", show: false, position: .center))
                     }
                     
                 }

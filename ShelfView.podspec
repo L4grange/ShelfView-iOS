@@ -38,5 +38,5 @@ iOS custom view to display books on shelf, mimicking a real library.
 
   # s.public_header_files = 'Pod/Classes/**/*.h'
   s.frameworks = 'UIKit'
-  s.dependency 'Kingfisher', '~> 3.0'
+  s.dependency 'Kingfisher', '~> 4.0'
 end
